@@ -36,7 +36,12 @@ translation_dict = {
 
 class Reader:
     def __init__(self, FILENAME, period = 0.01, repeat = True, artificial_time = True):
-        rospy.init_node("sto_dumper")
+        """
+        Reader(FILENAME, period= 0.01)
+        Publishes straight tfs from imu.sto type file.
+
+        I currently have to invert the q.w, so I wonder how am I saving this. I think I am probably using the conventional way of saving 
+        """
         self.rate = rospy.Rate(1/ period) # in seconds
         self.FILENAME= FILENAME
         self.repeat = repeat
@@ -166,9 +171,16 @@ class Reader:
 
 if __name__ == "__main__":
     try:
+        rospy.init_node("sto_dumper")
         #A = Reader("test.sto")
         #A = Reader("/catkin_ws/Data/02_ruoli/ViconData/Ruoli/Moticon_insole/RealTimekIDS2/2023-03-03-11-53-52walking011_imus_lower.sto")
-        A = Reader("/catkin_ws/Data/02_ruoli/ViconData/Ruoli/Moticon_insole/RealTimekIDS2/2023-03-03-11-56-24walking012_imus_lower.sto")
+        file = "/catkin_ws/Data/02_ruoli/ViconData/Ruoli/Moticon_insole/RealTimekIDS2/2023-03-03-11-56-24walking012_imus_lower.sto"
+        file = rospy.get_param("~sto_file",default= file)
+        period = rospy.get_param("~period", default=0.01)
+        repeat = rospy.get_param("~repeat", default=True)
+        tf_prefix = rospy.get_param("~tf_prefix", default="")
+        A = Reader(file,period= period, repeat=repeat)
+        A.tf_prefix = tf_prefix
         A.loopsend()
     except rospy.ROSInterruptException:
         pass
