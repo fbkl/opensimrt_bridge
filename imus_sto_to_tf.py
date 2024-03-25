@@ -2,19 +2,37 @@
 
 # -*- coding: utf-8 -*-
 import sys, traceback
-import csv
 import numpy as np
 import rospy
+import tf2_ros
+from std_msgs.msg import Header
 
 class Imu:
     def __init__(self, name):
         self.name = name
         self.q_indexes = [-1,-1,-1,-1]
+        self.t = 0
+        self.q = [-1,0,0,0]
 
     def __repr__(self):
         return self.__str__()
     def __str__(self):
-        return f"{self.name}, ({self.q_indexes})"
+        return f"{self.name}, ({self.q_indexes})\n{self.t}:{self.q}"
+
+##I need this to be able to see anything..
+
+translation_dict = {
+        "torso":(0,0,1.4),
+        "pelvis":(0,0,1),
+        "femur_r":(0.15,0,0.7),
+        "tibia_r":(0.15,0,0.3),
+        "talus_r":(0.15,0.1,0.05),
+        "femur_l":(-0.15,0,0.7),
+        "tibia_l":(-0.15,0,0.3),
+        "talus_l":(-0.15,0.1,0.05),
+        }
+
+
 
 class Reader:
     def __init__(self, FILENAME, period = 0.01, repeat = True, artificial_time = True):
@@ -29,6 +47,8 @@ class Reader:
         self.period = period
         self.imu_list = []
         self.imus = []
+        self.tf_prefix = "imu/"
+        self.broadcaster = tf2_ros.TransformBroadcaster()
 
     def set_imu_names(self):
         for label in self.labels:
@@ -54,52 +74,90 @@ class Reader:
                         imu.q_indexes[3] = i
 
     def get_qs(self,line):
-        pass
+        ## updata imu_list
+        for imu in self.imu_list:
+            #print(f"{imu.name}: {[  line[i] for i in imu.q_indexes]}")
+            imu.q = [  float(line[i]) for i in imu.q_indexes]
+            imu.t = line[0]
+        return self.imu_list
 
     def gen(self):
         with open(self.FILENAME) as stofile:
-            line = csv.reader(stofile,delimiter="\t")
-            next(line) ## trying to skip the header
-            next(line) ## trying to skip the header
-            next(line) ## trying to skip the header
-            next(line) ## trying to skip the header
+            #line = csv.reader(stofile,delimiter="\t")
+            stofile.readline()
+            stofile.readline()
+            stofile.readline()
+            stofile.readline()
+            #next(line) ## trying to skip the header
+            #next(line) ## trying to skip the header
+            #next(line) ## trying to skip the header
+            #next(line) ## trying to skip the header
             
-            self.labels = next(line) ## this line has the actual labels, if you want them
+            self.labels = stofile.readline().split("\t") ## this line has the actual labels, if you want them
             self.set_imu_names()
             self.gen_capture_lists()
             for imu in self.imu_list:
                 print(imu)
 
-            exit()
+            ##exit()
             while not rospy.is_shutdown():
-
-                for a in line:
-                    #print("a:%s"%a)
-                    if rospy.is_shutdown():
-                        break
+                stofile.seek(0)
+                stofile.readline()
+                stofile.readline()
+                stofile.readline()
+                stofile.readline()
+                stofile.readline()
+                line = stofile.readline().split("\t")
+                while (len(line) > 1): 
+                    #print(len(line))
+                    #print("line:%s"%line)
                     if self.repeat:
                         ## need to use actual time, or it will break when i loop
                         if self.artificial_time:
                             self.t += self.period 
                         else:
                             self.t = rospy.Time().now().to_sec()
-                        a[0]=str(self.t)
-                    # like use as a generator?
-                    yield ["{:+.5f}".format(float(i)) for i in a]
-                if self.repeat:
-                    stofile.seek(5)
-                else:
+                        line[0]=str(self.t)
+
+                    yield ["{:+.5f}".format(float(i)) for i in line]
+                    line = stofile.readline().split("\t")
+                if not self.repeat:
                     break
+                else:
+                    print("rewinding")
 
     #bytesToSend         = str.encode(msgFromClient)
-    def loopsend(self):
+    def loopsend(self): ## remove rate and make this guy output the values if you want to reuse this class
         #try:
             for i,msg in enumerate(self.gen()):
                 ## sends tfs
-                print(msg)
+                #print(msg)
+                imu_curr = self.get_qs(msg)
+                ## we are going to use the same header
+                h = Header()
+                h.stamp = rospy.Time.from_seconds(self.t)
+                h.frame_id = "map"
+                for imu in imu_curr:
+                    #print(imu)
+                    this_tfs = tf2_ros.TransformStamped()
+                    this_tfs.header = h
+                    ## I never know the order...
+                    ## but this, right now, should be the inverse transform, so the one with inverted w i believe
+                    this_tfs.transform.rotation.w = -imu.q[0] 
+                    this_tfs.transform.rotation.x = imu.q[1] 
+                    this_tfs.transform.rotation.y = imu.q[2] 
+                    this_tfs.transform.rotation.z = imu.q[3] 
+                    this_tfs.transform.translation.x = translation_dict[imu.name][0]
+                    this_tfs.transform.translation.y = translation_dict[imu.name][1]
+                    this_tfs.transform.translation.z = translation_dict[imu.name][2]
+                    this_tfs.child_frame_id = self.tf_prefix + imu.name
+                    
+                    self.broadcaster.sendTransform(this_tfs)
+
                 if rospy.is_shutdown():
                     break
                 self.rate.sleep()
+
             rospy.loginfo("finished!")
         #except:
         #    traceback.print_exc(file=sys.stdout)
@@ -108,7 +166,9 @@ class Reader:
 
 if __name__ == "__main__":
     try:
-        A = Reader("test.sto")
+        #A = Reader("test.sto")
+        #A = Reader("/catkin_ws/Data/02_ruoli/ViconData/Ruoli/Moticon_insole/RealTimekIDS2/2023-03-03-11-53-52walking011_imus_lower.sto")
+        A = Reader("/catkin_ws/Data/02_ruoli/ViconData/Ruoli/Moticon_insole/RealTimekIDS2/2023-03-03-11-56-24walking012_imus_lower.sto")
         A.loopsend()
     except rospy.ROSInterruptException:
         pass
