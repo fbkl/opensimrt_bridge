@@ -141,7 +141,8 @@ class Reader:
                 ## we are going to use the same header
                 h = Header()
                 h.stamp = rospy.Time.from_seconds(self.t)
-                h.frame_id = "map"
+                h.frame_id = "subject_heading"
+                transforms = []
                 for imu in imu_curr:
                     #print(imu)
                     this_tfs = tf2_ros.TransformStamped()
@@ -156,11 +157,13 @@ class Reader:
                     this_tfs.transform.translation.y = translation_dict[imu.name][1]
                     this_tfs.transform.translation.z = translation_dict[imu.name][2]
                     this_tfs.child_frame_id = self.tf_prefix + imu.name
-                    
-                    self.broadcaster.sendTransform(this_tfs)
+                    transforms.append(this_tfs)
+                
+                self.broadcaster.sendTransform(transforms)
 
                 if rospy.is_shutdown():
                     break
+                
                 self.rate.sleep()
 
             rospy.loginfo("finished!")
