@@ -21,15 +21,16 @@ class Imu:
 
 ##I need this to be able to see anything..
 
+# I had fixed this before, but whatever.
 translation_dict = {
         "torso":(0,0,1.4),
         "pelvis":(0,0,1),
-        "femur_r":(0.15,0,0.7),
-        "tibia_r":(0.15,0,0.3),
-        "talus_r":(0.15,0.1,0.05),
-        "femur_l":(-0.15,0,0.7),
-        "tibia_l":(-0.15,0,0.3),
-        "talus_l":(-0.15,0.1,0.05),
+        "femur_r":(0.0,-0.15,0.7),
+        "femur_l":(0.0, 0.15,0.7),
+        "tibia_r":(0.0,-0.15,0.3),
+        "tibia_l":(0.0, 0.15,0.3),
+        "talus_r":(0.1,-0.15,0.05),
+        "talus_l":(0.1, 0.15,0.05),
         }
 
 
