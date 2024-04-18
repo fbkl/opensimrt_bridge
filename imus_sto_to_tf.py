@@ -36,13 +36,14 @@ translation_dict = {
 
 
 class Reader:
-    def __init__(self, FILENAME, period = 0.01, repeat = True, artificial_time = True):
+    def __init__(self, FILENAME, period = 0.01, repeat = True, artificial_time = True, ref_frame = "map"):
         """
         Reader(FILENAME, period= 0.01)
         Publishes straight tfs from imu.sto type file.
 
         I currently have to invert the q.w, so I wonder how am I saving this. I think I am probably using the conventional way of saving 
         """
+        self.ref_frame = ref_frame
         self.rate = rospy.Rate(1/ period) # in seconds
         self.FILENAME= FILENAME
         self.repeat = repeat
@@ -142,7 +143,7 @@ class Reader:
                 ## we are going to use the same header
                 h = Header()
                 h.stamp = rospy.Time.from_seconds(self.t)
-                h.frame_id = "subject_heading"
+                h.frame_id = self.ref_frame #"subject_heading"
                 transforms = []
                 for imu in imu_curr:
                     #print(imu)
@@ -182,8 +183,10 @@ if __name__ == "__main__":
         file = rospy.get_param("~sto_file",default= file)
         period = rospy.get_param("~period", default=0.01)
         repeat = rospy.get_param("~repeat", default=True)
+        #tf_reference_frame = rospy.get_param("~tf_reference_frame", default="subject_heading")
+        tf_reference_frame = rospy.get_param("~tf_reference_frame", default="map")
         tf_prefix = rospy.get_param("~tf_prefix", default="")
-        A = Reader(file,period= period, repeat=repeat)
+        A = Reader(file,period= period, repeat=repeat, ref_frame = tf_reference_frame)
         A.tf_prefix = tf_prefix
         A.loopsend()
     except rospy.ROSInterruptException:
