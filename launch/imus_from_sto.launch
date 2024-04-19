@@ -4,12 +4,14 @@
 	<arg name="sto_file" 	default="/catkin_ws/Data/02_ruoli/ViconData/Ruoli/Moticon_insole/RealTimekIDS2/2023-03-03-11-56-24walking012_imus_lower.sto" />
 
 	<arg name="tf_prefix" 		default="imu/"/>
-
+	<arg name="start_at_secs" default="0"/>
+	<arg name="start_at_nsecs" default="0"/>
 	<node name="ik_from_imu_sto" pkg="opensimrt_bridge" type="imus_sto_to_tf.py" output="screen" >
 		<param name="sto_file" 	value="$(arg sto_file)"/>
 		<param name="period" 	value="0.01"/>
-		<param name="repeat" 	value="true"/>
+		<param name="repeat" 	value="1"/>
 		<param name="tf_prefix" 	value="$(arg tf_prefix)"/>
-
+		<param name="start_at_secs" value="$(arg start_at_secs)"/>
+		<param name="start_at_nsecs" value="$(arg start_at_nsecs)"/>
 	</node>
 </launch>

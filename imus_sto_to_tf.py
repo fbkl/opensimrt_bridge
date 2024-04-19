@@ -36,7 +36,7 @@ translation_dict = {
 
 
 class Reader:
-    def __init__(self, FILENAME, period = 0.01, repeat = True, artificial_time = True, ref_frame = "map"):
+    def __init__(self, FILENAME, period = 0.01, repeat = 1, artificial_time = True, ref_frame = "map", start_at=(None,None)):
         """
         Reader(FILENAME, period= 0.01)
         Publishes straight tfs from imu.sto type file.
@@ -47,6 +47,7 @@ class Reader:
         self.rate = rospy.Rate(1/ period) # in seconds
         self.FILENAME= FILENAME
         self.repeat = repeat
+        self.start_at = start_at
         self.labels = None
         self.artificial_time = artificial_time
         self.t0 = rospy.Time().now().to_sec()
@@ -54,6 +55,7 @@ class Reader:
         self.period = period
         self.imu_list = []
         self.imus = []
+        self.run_counts = 1
         self.tf_prefix = "imu/"
         self.broadcaster = tf2_ros.TransformBroadcaster()
 
@@ -118,57 +120,74 @@ class Reader:
                 while (len(line) > 1): 
                     #print(len(line))
                     #print("line:%s"%line)
-                    if self.repeat:
+                    if self.repeat>self.run_counts:
                         ## need to use actual time, or it will break when i loop
                         if self.artificial_time:
                             self.t += self.period 
                         else:
                             self.t = rospy.Time().now().to_sec()
-                        line[0]=str(self.t)
+                        line[0]=str(self.t+float(line[0]))
+
+                    ## I am always using self.t for time. 
 
                     yield ["{:+.5f}".format(float(i)) for i in line]
                     line = stofile.readline().split("\t")
-                if not self.repeat:
-                    break
+                if self.repeat==self.run_counts:
+                    return
                 else:
+                    self.run_counts+=1
                     print("rewinding")
 
     #bytesToSend         = str.encode(msgFromClient)
     def loopsend(self): ## remove rate and make this guy output the values if you want to reuse this class
-        #try:
-            for i,msg in enumerate(self.gen()):
-                ## sends tfs
-                #print(msg)
-                imu_curr = self.get_qs(msg)
-                ## we are going to use the same header
-                h = Header()
-                h.stamp = rospy.Time.from_seconds(self.t)
-                h.frame_id = self.ref_frame #"subject_heading"
-                transforms = []
-                for imu in imu_curr:
-                    #print(imu)
-                    this_tfs = tf2_ros.TransformStamped()
-                    this_tfs.header = h
-                    ## I never know the order...
-                    ## but this, right now, should be the inverse transform, so the one with inverted w i believe
-                    this_tfs.transform.rotation.w = -imu.q[0] 
-                    this_tfs.transform.rotation.x = imu.q[1] 
-                    this_tfs.transform.rotation.y = imu.q[2] 
-                    this_tfs.transform.rotation.z = imu.q[3] 
-                    this_tfs.transform.translation.x = translation_dict[imu.name][0]
-                    this_tfs.transform.translation.y = translation_dict[imu.name][1]
-                    this_tfs.transform.translation.z = translation_dict[imu.name][2]
-                    this_tfs.child_frame_id = self.tf_prefix + imu.name
-                    transforms.append(this_tfs)
-                
-                self.broadcaster.sendTransform(transforms)
-
-                if rospy.is_shutdown():
+        if start_at[0]:
+            a = rospy.Time.now().to_sec()
+            a_secs = int(a)
+            a_nsecs = a-a_secs
+            while (True):
+                a = rospy.Time.now().to_sec()
+                a_secs = int(a)
+                a_nsecs = a-a_secs
+                if (a_secs>self.start_at[0]):
                     break
-                
+                if a_secs==self.start_at[0] and start_at[1] and a_nsecs>=start_at[1]:
+                    break
                 self.rate.sleep()
+                rospy.logwarn_throttle(1,"waiting to start...")
+        #try:
+        for i,msg in enumerate(self.gen()):
+            ## sends tfs
+            #print(msg)
+            imu_curr = self.get_qs(msg)
+            ## we are going to use the same header
+            h = Header()
+            h.stamp = rospy.Time.from_seconds(float(msg[0]))
+            h.frame_id = self.ref_frame #"subject_heading"
+            transforms = []
+            for imu in imu_curr:
+                #print(imu)
+                this_tfs = tf2_ros.TransformStamped()
+                this_tfs.header = h
+                ## I never know the order...
+                ## but this, right now, should be the inverse transform, so the one with inverted w i believe
+                this_tfs.transform.rotation.w = -imu.q[0] 
+                this_tfs.transform.rotation.x = imu.q[1] 
+                this_tfs.transform.rotation.y = imu.q[2] 
+                this_tfs.transform.rotation.z = imu.q[3] 
+                this_tfs.transform.translation.x = translation_dict[imu.name][0]
+                this_tfs.transform.translation.y = translation_dict[imu.name][1]
+                this_tfs.transform.translation.z = translation_dict[imu.name][2]
+                this_tfs.child_frame_id = self.tf_prefix + imu.name
+                transforms.append(this_tfs)
+            
+            self.broadcaster.sendTransform(transforms)
 
-            rospy.loginfo("finished!")
+            if rospy.is_shutdown():
+                break
+            
+            self.rate.sleep()
+
+        rospy.loginfo("finished!")
         #except:
         #    traceback.print_exc(file=sys.stdout)
 
@@ -182,11 +201,14 @@ if __name__ == "__main__":
         file = "/catkin_ws/Data/02_ruoli/ViconData/Ruoli/Moticon_insole/RealTimekIDS2/2023-03-03-11-56-24walking012_imus_lower.sto"
         file = rospy.get_param("~sto_file",default= file)
         period = rospy.get_param("~period", default=0.01)
-        repeat = rospy.get_param("~repeat", default=True)
+        repeat = rospy.get_param("~num_repeats", default=1)
+        start_at = (rospy.get_param("~start_at_secs", default=None),
+                    rospy.get_param("~start_at_nsecs", default=None)
+                    )
         #tf_reference_frame = rospy.get_param("~tf_reference_frame", default="subject_heading")
         tf_reference_frame = rospy.get_param("~tf_reference_frame", default="map")
         tf_prefix = rospy.get_param("~tf_prefix", default="")
-        A = Reader(file,period= period, repeat=repeat, ref_frame = tf_reference_frame)
+        A = Reader(file,period= period, repeat=repeat, ref_frame = tf_reference_frame, start_at=start_at )
         A.tf_prefix = tf_prefix
         A.loopsend()
     except rospy.ROSInterruptException:
