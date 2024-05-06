@@ -16,6 +16,7 @@
 #include "opensimrt_msgs/Dual.h"
 #include "opensimrt_msgs/MultiMessage.h"
 #include "opensimrt_msgs/MultiMessagePosVelAcc.h"
+#include "opensimrt_msgs/OpenSimData.h"
 #include "opensimrt_msgs/PosVelAccTimed.h"
 #include "ros/message_traits.h"
 #include "tf2_ros/buffer.h"
@@ -42,6 +43,7 @@ namespace Osb
 	std::vector<OpenSimRT::ExternalWrench::Input> get_wrench(const opensimrt_msgs::CommonTimedConstPtr& message_grf,boost::array<int,9> grfRightIndexes, boost::array<int,9> grfLeftIndexes );
 
 	OpenSimRT::ExternalWrench::Input parse_message(const opensimrt_msgs::CommonTimedConstPtr& msg_grf, boost::array<int,9> grfIndexes);
+	opensimrt_msgs::OpenSimData reverse_parse_wrench(OpenSimRT::ExternalWrench::Input a);
 	OpenSimRT::ExternalWrench::Input parse_message(const geometry_msgs::WrenchStampedConstPtr& w, std::string ref_frme, tf2_ros::Buffer& tfBuffer, std::string grf_reference_frame);
 	std::vector<SimTK::Vector> parse_ik_message(const opensimrt_msgs::CommonTimedConstPtr& message_ik, double* filtered_t, OpenSimRT::LowPassSmoothFilter* ikfilter );
 	std::vector<SimTK::Vector> parse_ik_message(const opensimrt_msgs::PosVelAccTimedConstPtr& message_ik);
@@ -55,6 +57,7 @@ namespace Osb
 	opensimrt_msgs::MultiMessage get_SO_as_Multi(std_msgs::Header h, double t,SimTK::Vector q,OpenSimRT::MuscleOptimization::Output& soOutput, std::vector<opensimrt_msgs::Event> ee);
 	opensimrt_msgs::MultiMessagePosVelAcc get_SO_as_MultiPosVelAcc(std_msgs::Header h, double t,SimTK::Vector q, SimTK::Vector qDot, SimTK::Vector qDDot,OpenSimRT::MuscleOptimization::Output& soOutput, std::vector<opensimrt_msgs::Event> ee);
 
+	opensimrt_msgs::MultiMessage get_as_Multi(std_msgs::Header h, std::vector<opensimrt_msgs::OpenSimData> msgs, std::vector<opensimrt_msgs::Event> ee);
 
 }
 #endif /* end of include guard  */

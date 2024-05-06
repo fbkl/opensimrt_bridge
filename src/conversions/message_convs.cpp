@@ -108,6 +108,19 @@ namespace Osb
 		return a;
 	}
 
+	opensimrt_msgs::OpenSimData reverse_parse_wrench(ExternalWrench::Input a)
+	{
+		opensimrt_msgs::OpenSimData op;
+		
+		//maybe i can use the get_GRFM_as_common_message? this is hardcoded in InverseDynamics as well, so it doesnt matter. 
+
+		auto vv = a.toVector();
+		op.data.insert(op.data.end(),vv.begin(),vv.end());
+
+		return op;
+	}
+
+
 	ExternalWrench::Input parse_message(const geometry_msgs::WrenchStampedConstPtr& w, std::string ref_frame, tf2_ros::Buffer& tfBuffer, std::string grf_reference_frame)
 	{
 		ExternalWrench::Input wO;
@@ -292,6 +305,27 @@ namespace Osb
 
 	}
 
+	opensimrt_msgs::MultiMessage get_as_Multi(std_msgs::Header h, std::vector<opensimrt_msgs::OpenSimData> msgs, std::vector<opensimrt_msgs::Event> ee)
+	{
+		opensimrt_msgs::MultiMessage msg;
+		msg.header = h;
+		msg.events.list = ee;
+		msg.ik.data = msgs[0].data;// assumes ik is 0
+		int i = 0;
+		for (auto v:msgs)
+			{
+				if (i==0)
+				{
+					i = 1;
+				}
+				else
+				{
+					msg.other.push_back(v);
+					//maybe also update events? am I going to have doubled events though
+				}
+			}
+		return msg;
+	}
 	opensimrt_msgs::MultiMessage get_as_Multi(std_msgs::Header h, double t,SimTK::Vector q,SimTK::Vector vk, std::vector<opensimrt_msgs::Event> ee)
 	{
 		opensimrt_msgs::MultiMessage msg;
