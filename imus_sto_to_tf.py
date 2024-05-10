@@ -140,20 +140,6 @@ class Reader:
 
     #bytesToSend         = str.encode(msgFromClient)
     def loopsend(self): ## remove rate and make this guy output the values if you want to reuse this class
-        if start_at[0]:
-            a = rospy.Time.now().to_sec()
-            a_secs = int(a)
-            a_nsecs = a-a_secs
-            while (True):
-                a = rospy.Time.now().to_sec()
-                a_secs = int(a)
-                a_nsecs = a-a_secs
-                if (a_secs>self.start_at[0]):
-                    break
-                if a_secs==self.start_at[0] and start_at[1] and a_nsecs>=start_at[1]:
-                    break
-                self.rate.sleep()
-                rospy.logwarn_throttle(1,"waiting to start...")
         #try:
         for i,msg in enumerate(self.gen()):
             ## sends tfs
@@ -161,7 +147,8 @@ class Reader:
             imu_curr = self.get_qs(msg)
             ## we are going to use the same header
             h = Header()
-            h.stamp = rospy.Time.from_seconds(float(msg[0]))
+            #h.stamp = rospy.Time.from_seconds(float(msg[0]))
+            h.stamp = rospy.Time.now()
             h.frame_id = self.ref_frame #"subject_heading"
             transforms = []
             for imu in imu_curr:
@@ -181,6 +168,25 @@ class Reader:
                 transforms.append(this_tfs)
             
             self.broadcaster.sendTransform(transforms)
+            if start_at[0] and i==0:
+                a = rospy.Time.now().to_sec()
+                a_secs = int(a)
+                a_nsecs = a-a_secs
+                while (True):
+                    a = rospy.Time.now().to_sec()
+                    a_secs = int(a)
+                    a_nsecs = a-a_secs
+                    if (a_secs>self.start_at[0]):
+                        break
+                    if a_secs==self.start_at[0] and start_at[1] and a_nsecs>=start_at[1]:
+                        break
+                    self.rate.sleep()
+                    fake_tfs = []
+                    for some_tf in transforms:
+                        some_tf.header.stamp = rospy.Time.now()
+                        fake_tfs.append(some_tf)
+                    self.broadcaster.sendTransform(fake_tfs) #TODO: this is incorrect. i should send the calibrated values instead for most accurate as possible
+                    rospy.logwarn_throttle(1,"waiting to start...")
 
             if rospy.is_shutdown():
                 break
