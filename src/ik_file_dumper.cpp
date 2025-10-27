@@ -25,7 +25,6 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
 using namespace OpenSimRT;
 
 class TablePublisher
@@ -241,7 +240,7 @@ class TablePublisher
 			return true;
 
 		}
-		void publish_table(RowVector qqqqq, double t)
+		void publish_table(SimTK::RowVector qqqqq, double t)
 		{
 			opensimrt_msgs::CommonTimed msg;
 			std_msgs::Header h;
@@ -305,7 +304,7 @@ class TablePublisher
 			{
 				int k = qTable.getRowIndexAfterTime(table_time);
 				ROS_DEBUG_STREAM("table_time" << table_time << "time:" << time << "k" << k);
-				RowVector qqqqq = qTable.getRowAtIndex(k);
+				SimTK::RowVector qqqqq = qTable.getRowAtIndex(k);
 				publish_table(qqqqq, table_time);
 			}
 		}
@@ -313,7 +312,7 @@ class TablePublisher
 		{
 			// get raw pose from table
 			ROS_DEBUG("Get raw pose from table");
-			RowVector qqqqq = qTable.getRowAtIndex(i);
+			SimTK::RowVector qqqqq = qTable.getRowAtIndex(i);
 
 			double t = qTable.getIndependentColumn()[i] + time_offset;
 			publish_table(qqqqq,t);

@@ -11,7 +11,6 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
 using namespace OpenSimRT;
 
 void run() {
